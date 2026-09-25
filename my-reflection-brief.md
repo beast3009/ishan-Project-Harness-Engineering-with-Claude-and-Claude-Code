@@ -1,7 +1,7 @@
 # Reflection Brief - Harness Engineering Capstone
 
-**Name:** Neeharika Nanjarapalli
-**Date:** 1st Sept 2026
+**Name:** ishan kumar
+**Date:** 26 Sept 2026
 
 **Environment**
 
