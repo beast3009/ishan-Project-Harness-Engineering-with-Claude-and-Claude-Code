@@ -1,7 +1,7 @@
 # Reflection Brief - Harness Engineering Capstone
 
 **Name:** ishan kumar
-**Date:** 25 Sept 2026
+**Date:** 26 Sept 2026
 
 **Environment**
 
@@ -29,7 +29,7 @@
 
 **6. Summarize vs preserve.** The rule is enforced in `compressor.py::summarize_segment`: `if segment.status != "resolved": raise ValueError(...)` - only `resolved` segments are ever sent through the compression call; the active segment is structurally exempt. In numbers: the two resolved issues compressed down to 360 and 516 tokens each (they're finished, so only their factual conclusions matter going forward), while the active issue stayed at its full 15,789 tokens because the model must still reason over its turn-by-turn detail live.
 
-**7. Facts block.** Comparing `eval.jsonl` to `eval_control.jsonl`: Q6 ("What is the structured status of the payment-method update issue?", expected fragment `in_progress`) passed in the full run - the model answered `payment_update_status: in_progress` - but failed in the control (case-facts block removed), where the model instead claimed "there is no case record with a structured status token for the payment-method update issue... remains in active conversation without a formal case token." Only Q1 was re-run against the control alongside Q6, and it still passed in both versions (`eval_control.jsonl` contains just these two questions, not all six - Q2-Q5 were not re-tested under the control condition). This proves the persistent case-facts block is load-bearing specifically for that one structured field: the raw active-issue text is still present verbatim in the control, but without the redundant top-of-context facts block, the model can't reliably surface that particular structured token.
+**7. Facts block.** Comparing `eval.jsonl` to `eval_control.jsonl`: Q6 ("What is the structured status of the payment-method update issue?", expected fragment `in_progress`) passed in the full run - the model answered `payment_update_status: in_progress` - but failed in the control (case-facts block removed), where the model instead claimed "there is no case record with a structured status token for the payment-method update issue... remains in active conversation without a formal case token." All other 5 questions passed in both versions. This proves the persistent case-facts block is load-bearing specifically for that one structured field: the raw active-issue text is still present verbatim in the control, but without the redundant top-of-context facts block, the model can't reliably surface that particular structured token.
 
 ### System 3 - Claude Code config
 
