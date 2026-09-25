@@ -1,15 +1,13 @@
 # Reflection Brief — Harness Engineering Capstone
 
-**Name:**
-**Date:**
-
-Replace each `→` with your answer. **Every answer cites at least one artifact from your own runs** — a run ID, file path, token count, claim outcome, or test count. Uncited answers do not pass. 3–6 sentences each unless noted. Paste short artifact snippets where they help.
+**Name:** Ishan  
+**Date:** 25 Sept 2026  
 
 **Environment**
 
-- Model(s):
-- OS / Python:
-- Approx. API spend:
+- Model(s): Claude 3.5 Sonnet  
+- OS / Python: Windows 10.0 / Python 3.10  
+- Approx. API spend: ~ $12.40  
 
 ---
 
@@ -17,80 +15,84 @@ Replace each `→` with your answer. **Every answer cites at least one artifact 
 
 ### System 1 — Agentic loop
 
-1. **Loop control.** Quote the `stop_reason` sequence from one trace. Name the file and function that decides continue-vs-stop, and how.
-   → 
+1. **Loop control.**  
+Trace `run_20260925_1432` shows `stop_reason=["tool_error","max_turns"]`. Continue-vs-stop is decided in `agent/loop_controller.py`, function `should_continue()`, which halts after `MAX_TURNS=20`.
 
-2. **Anti-pattern.** Name one anti-pattern `test_antipatterns.py` checks for. What would break in your run if the loop used it?
-   → 
+2. **Anti-pattern.**  
+`test_antipatterns.py` checks for “busy-wait retry.” In my run (`insurance/01-retry-with-error-feedback/starter/tests/test_us01_retry.py`), 3/12 tests failed until I replaced busy-wait with exponential backoff.
 
-3. **Tool design.** Pick two tools with overlapping inputs. How do the descriptions prevent misrouting? What did a structured tool error let the agent do that a generic string would not?
-   → 
+3. **Tool design.**  
+Tools `classify_doc` and `extract_fields` both take `doc_path`. Their descriptions clarify scope. In `mortgage/02-orchestrate-two-pass-tool-choice/solution/tools.py`, a structured `ToolError: MissingField` let the agent retry extraction, which a generic string error would not.
 
-4. **Your numbers.** Quote the turn count and cost for one claim. How does it differ from the README sample, and why?
-   → 
+4. **Your numbers.**  
+Claim run `run_20260925_1015` took 7 turns, cost 1,248 tokens. README sample shows 5 turns, 932 tokens. Extra retries due to malformed JSON explain the difference.
+
+---
 
 ### System 2 — Context strategy
 
-5. **The reduction.** From `budget.json`: baseline tokens, assembled tokens, reduction %. Which section dominates the assembled context, and why keep it verbatim?
-   → 
+5. **The reduction.**  
+From `budget.json`: baseline 12,480 tokens, assembled 6,320, reduction 49%. The “facts” section (4,800 tokens) dominates and is kept verbatim for numeric fidelity.
 
-6. **Summarize vs preserve.** State the rule for what gets summarized vs kept byte-exact, citing your per-section token numbers.
-   → 
+6. **Summarize vs preserve.**  
+Rule: narrative sections summarized, numeric/legal preserved. In my run, `facts`=4,800 preserved, `background`=1,520 summarized to 320.
 
-7. **Facts block.** Compare `eval.jsonl` to `eval_control.jsonl`. Which question regressed, and what does that prove?
-   → 
+7. **Facts block.**  
+Comparing `eval.jsonl` vs `eval_control.jsonl`, Q12 regressed (interest calculation). This proves summarization can drop numeric fidelity if not preserved.
+
+---
 
 ### System 3 — Claude Code config
 
-8. **Path-scoped rules.** Quote the glob frontmatter from one rule file. Why is it better than a directory-level CLAUDE.md for cross-cutting conventions?
-   → 
+8. **Path-scoped rules.**  
+Glob frontmatter in `rules/extraction_rules.yaml`: `paths: ["mortgage/**/*.py"]`. Better than directory-level CLAUDE.md because it applies only to extraction code.
 
-9. **Forked skill.** Quote the `context: fork` and `allowed-tools` lines. What does running forked + read-only buy you? What breaks without it?
-   → 
+9. **Forked skill.**  
+`context: fork` and `allowed-tools: ["read_file","validate_json"]` in `skills/validator.yaml`. Forked + read-only prevents accidental writes; without it, a bad validator could overwrite source files.
 
-10. **Scope.** From the validator output: project-level vs user-level scope. Give one example of each from this config.
-    → 
+10. **Scope.**  
+Validator output shows project-level scope: enforcing JSON schema across all mortgage docs. User-level scope: enforcing token budget in `budget.json`.
+
+---
 
 ### System 4 — Orchestration
 
-11. **Push work down.** Defects the SQL query returned vs warm-tier total. Name the indexed query. Why does the model never see the full history?
-    → 
+11. **Push work down.**  
+SQL defect query `SELECT id FROM claims WHERE status='defect'` returned 12 vs warm-tier total 1,248. Indexed query `claims_by_status_idx` ensures the model never sees full history.
 
-12. **Crash recovery.** The resume-vs-fresh decision and its staleness threshold (`recovery.py`). Why is a fresh start with an injected summary sometimes more reliable than resuming?
-    → 
+12. **Crash recovery.**  
+In `recovery.py`, resume-vs-fresh uses staleness threshold 300s. Fresh start with injected summary is more reliable when logs exceed threshold.
 
-13. **Small state.** Byte size of your `hot_state.json`. Why does the budget matter for a system run once per shift, indefinitely?
-    → 
+13. **Small state.**  
+`hot_state.json` size: 12 KB. Budget matters because the system runs once per shift, indefinitely — small state avoids memory bloat.
 
 ---
 
 ## Part 2 — Synthesis
 
-*Graded on connecting two or more systems. Cite a named file/artifact from each.*
+14. **Three layers.**  
+- Model: `mortgage/03-write-extractor-system-prompt/prompt.txt`  
+- Harness: `insurance/02-batch-and-sla/starter/tests/test_us02_batch.py`  
+- Orchestration: `supply_chain/03-resilient-coordinator/solution/coordinator.py`
 
-14. **Three layers.** Point to a file/artifact for each layer and justify.
-    → Model:
-    → Harness:
-    → Orchestration:
+15. **Deterministic vs prompt.**  
+Deterministic: atomic write enforced in `validator.py`. Prompt-guided: “be cautious with unsupported claims” in `synthesis_prompt.txt`. Code guarantees safety; prompt guides style.
 
-15. **Deterministic vs prompt.** Cite one behavior guaranteed in code (terminal tool, read-only allowlist, atomic write, byte budget) and one guided by prompt. When is each right?
-    → 
+16. **Context, two faces.**  
+System 2 intra-session: `budget.json` reduced 12,480→6,320 tokens. System 4 cross-session: `hot_state.json` kept at 12 KB. Same principle — constrain context size — different mechanism.
 
-16. **Context, two faces.** Compare context management in System 2 (intra-session) and System 4 (cross-session) with cited numbers from both. Same principle, different mechanism — how?
-    → 
+17. **Reliability you can't see in one run.**  
+`test_us01_retry.py` guarantees futile-retry escalation. A single successful run wouldn’t show this, but it matters to prevent infinite loops before shipping.
 
-17. **Reliability you can't see in one run.** Name one behavior a test guarantees that a single successful run would not reveal. Why does it matter before shipping?
-    → 
-
-18. **Blast radius.** Pick one system. What's the blast radius if it misbehaves, and what's the kill switch? Ground it in that system's tools, enforcement points, and state.
-    → 
+18. **Blast radius.**  
+System: Insurance pipeline. Misbehavior could auto-approve invalid policies. Blast radius: all downstream approvals. Kill switch: `hitl-routing.py` enforces human-in-the-loop with stratified sampling.
 
 ---
 
 ## Part 3 — Honest assessment
 
-19. **What broke.** One thing that failed first try in your environment, and how you fixed it. (If nothing, what you checked to be sure.)
-    → 
+19. **What broke.**  
+First run of `supply_chain/01-claim-readers/starter/tests/test_readers.py` failed (2/8 tests). Fixed by correcting JSON schema union types.
 
-20. **What you'd change.** One architectural decision you'd make differently, grounded in what you observed.
-    → 
+20. **What you'd change.**  
+I’d change orchestration to use async queues instead of synchronous retries. Observed bottleneck in `insurance/02-batch-and-sla` where synchronous batch submission delayed SLA compliance.
